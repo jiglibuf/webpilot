@@ -1,0 +1,136 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 800" width="1280" height="800" role="img" aria-label="webpilot: контекст под бюджетом и замеры восприятия">
+  <defs>
+    <pattern id="grid3" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e293b" stroke-width="0.5"/>
+    </pattern>
+    <marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/>
+    </marker>
+    <style>
+      .bg3 { fill: #020617; }
+      .h1 { fill: #e2e8f0; font: 700 21px 'JetBrains Mono', 'DejaVu Sans Mono', monospace; }
+      .sub { fill: #94a3b8; font: 400 11px 'JetBrains Mono', 'DejaVu Sans Mono', monospace; }
+      .seg { stroke: #020617; stroke-width: 1.5; }
+      .t-in { fill: #0b1120; font: 700 10px 'JetBrains Mono', 'DejaVu Sans Mono', monospace; }
+      .t-in2 { fill: #f1f5f9; font: 700 10px 'JetBrains Mono', 'DejaVu Sans Mono', monospace; }
+      .cap { fill: #cbd5e1; font: 400 9px 'JetBrains Mono', 'DejaVu Sans Mono', monospace; }
+      .nh { fill: #e2e8f0; font: 700 10px 'JetBrains Mono', 'DejaVu Sans Mono', monospace; }
+      .n3 { fill: #94a3b8; font: 400 9px 'JetBrains Mono', 'DejaVu Sans Mono', monospace; }
+      .lbl { fill: #64748b; font: 400 9px 'JetBrains Mono', 'DejaVu Sans Mono', monospace; }
+      .mono { fill: #a5f3fc; font: 400 9.5px 'JetBrains Mono', 'DejaVu Sans Mono', monospace; }
+      .flow3 { stroke: #64748b; stroke-width: 1.4; fill: none; }
+      .box { fill: rgba(15, 23, 42, 0.9); stroke: #334155; stroke-width: 1; }
+    </style>
+  </defs>
+
+  <rect class="bg3" width="1280" height="800"/>
+  <rect width="1280" height="800" fill="url(#grid3)"/>
+
+  <text class="h1" x="40" y="48">Контекст под бюджетом</text>
+  <text class="sub" x="40" y="70">Слева — из чего состоит запрос к модели на одном шаге. Справа — механизмы, которые удерживают его в лимите.</text>
+
+  <!-- ===== левая колонка: окно контекста ===== -->
+  <text class="nh" x="120" y="110">Окно контекста (одна сборка)</text>
+  <rect x="120" y="122" width="300" height="400" rx="6" fill="#0b1120" stroke="#334155" stroke-width="1"/>
+
+  <rect class="seg" x="120" y="122" width="300" height="88" fill="#a78bfa"/>
+  <text class="t-in" x="136" y="152">системный промпт</text>
+  <text class="t-in" x="136" y="168">+ схемы инструментов</text>
+  <text class="t-in" x="136" y="188">~1 200 токенов</text>
+
+  <rect class="seg" x="120" y="210" width="300" height="30" fill="#38bdf8"/>
+  <text class="t-in" x="136" y="230">задача от человека</text>
+
+  <rect class="seg" x="120" y="240" width="300" height="66" fill="#a78bfa" opacity="0.75"/>
+  <text class="t-in" x="136" y="262">конспект старых шагов</text>
+  <text class="t-in" x="136" y="278">(свёртка субагентом)</text>
+  <text class="t-in" x="136" y="296">~600 токенов</text>
+
+  <rect class="seg" x="120" y="306" width="300" height="44" fill="#fbbf24"/>
+  <text class="t-in" x="136" y="326">скрэтчпад notes</text>
+  <text class="t-in" x="136" y="342">вытесняется последним</text>
+
+  <rect class="seg" x="120" y="350" width="300" height="96" fill="#34d399"/>
+  <text class="t-in" x="136" y="374">окно последних шагов</text>
+  <text class="t-in" x="136" y="390">результат + аргументы</text>
+  <text class="t-in" x="136" y="408">без полных снимков</text>
+  <text class="t-in" x="136" y="428">~2 000 токенов</text>
+
+  <rect class="seg" x="120" y="446" width="300" height="52" fill="#22d3ee"/>
+  <text class="t-in" x="136" y="468">снимок текущей страницы</text>
+  <text class="t-in" x="136" y="486">~500 токенов (дельта)</text>
+
+  <rect class="seg" x="120" y="498" width="300" height="24" fill="#475569"/>
+  <text class="t-in2" x="136" y="514">запас до лимита</text>
+
+  <text class="cap" x="120" y="546">Бюджет — это потолок, а не пожелание: рендер снимка подгоняется двоичным</text>
+  <text class="cap" x="120" y="562">поиском, история сворачивается, лишнее выбрасывается по приоритету.</text>
+
+  <!-- стрелка к списку механизмов -->
+  <line class="flow3" x1="420" y1="300" x2="520" y2="300" marker-end="url(#a3)"/>
+
+  <!-- ===== правая колонка: механизмы ===== -->
+  <text class="nh" x="540" y="110">Что именно удерживает контекст в бюджете</text>
+
+  <text class="mono" x="540" y="140">1 · снимок вместо HTML</text>
+  <text class="n3" x="540" y="155">в контекст идёт модель страницы, а не разметка</text>
+
+  <text class="mono" x="540" y="183">2 · индексация элементов</text>
+  <text class="n3" x="540" y="198">[17] button 'Add to cart' — одна строка на действие</text>
+
+  <text class="mono" x="540" y="226">3 · дельта-снимки</text>
+  <text class="n3" x="540" y="241">со второго шага отправляется только разница</text>
+
+  <text class="mono" x="540" y="269">4 · скользящее окно шагов</text>
+  <text class="n3" x="540" y="284">старые шаги заменяются конспектом, а не копятся</text>
+
+  <text class="mono" x="540" y="312">5 · свёртка истории субагентом</text>
+  <text class="n3" x="540" y="327">summarizer делает эпизодический конспект, есть детерминированный фолбэк</text>
+
+  <text class="mono" x="540" y="355">6 · скрэтчпад, который не вытесняется</text>
+  <text class="n3" x="540" y="370">notes переживает любую компакцию — модель не теряет свои выводы</text>
+
+  <text class="mono" x="540" y="398">7 · дедупликация неизменных состояний</text>
+  <text class="n3" x="540" y="413">одинаковый хеш страницы не отправляется второй раз</text>
+
+  <text class="mono" x="540" y="441">8 · жёсткий бюджет + честный учёт</text>
+  <text class="n3" x="540" y="456">context_token_budget соблюдается (стресс-тест на 200 шагов), usage видно в трейсе</text>
+
+  <rect class="box" x="540" y="482" width="700" height="76" rx="6"/>
+  <text class="nh" x="558" y="504">Отдельный счёт: кому сколько токенов досталось</text>
+  <text class="n3" x="558" y="521">В трейсе видно разделение основного цикла и субагентов (RunResult.usage.main / .subagents),</text>
+  <text class="n3" x="558" y="536">поэтому видно, сколько стоит восприятие страницы и сколько — понимание задачи.</text>
+
+  <!-- ===== низ: замеры ===== -->
+  <text class="nh" x="120" y="596">Замеры на реальных страницах (docs/measurements.json, скрипт scripts/measure_perception.py):</text>
+  <text class="lbl" x="120" y="614">сырой HTML — вся полоса; видимый текст и индексированные элементы — в том же масштабе</text>
+
+  <!-- row 1 -->
+  <text class="cap" x="120" y="642">saucedemo.com, форма входа</text>
+  <rect x="420" y="632" width="600" height="12" fill="#fb7185"/>
+  <text class="lbl" x="1030" y="642">HTML 700</text>
+  <rect x="420" y="650" width="35" height="8" fill="#34d399"/>
+  <text class="lbl" x="464" y="658">текст 41</text>
+  <rect x="560" y="650" width="38" height="8" fill="#22d3ee"/>
+  <text class="lbl" x="606" y="658">элементы 44</text>
+
+  <!-- row 2 -->
+  <text class="cap" x="120" y="692">books.toscrape.com, каталог</text>
+  <rect x="420" y="682" width="600" height="12" fill="#fb7185"/>
+  <text class="lbl" x="1030" y="692">HTML 13 074</text>
+  <rect x="420" y="700" width="24" height="8" fill="#34d399"/>
+  <text class="lbl" x="452" y="708">текст 520</text>
+  <rect x="560" y="700" width="23" height="8" fill="#22d3ee"/>
+  <text class="lbl" x="592" y="708">элементы 504</text>
+
+  <!-- row 3 -->
+  <text class="cap" x="120" y="742">en.wikipedia.org/wiki/Web_browser</text>
+  <rect x="420" y="732" width="600" height="12" fill="#fb7185"/>
+  <text class="lbl" x="1030" y="742">HTML 158 957</text>
+  <rect x="420" y="750" width="20" height="8" fill="#34d399"/>
+  <text class="lbl" x="448" y="758">текст 5 241</text>
+  <rect x="560" y="750" width="19" height="8" fill="#22d3ee"/>
+  <text class="lbl" x="588" y="758">элементы 5 121</text>
+
+  <text class="lbl" x="120" y="782">Итог: экономия 16× на маленькой форме, 26× на каталоге, 31× на длинной статье — и всё это без потери того, на что можно нажать.</text>
+</svg>

@@ -1,0 +1,213 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 880" width="1280" height="880" role="img" aria-label="webpilot: общая схема с пояснениями">
+  <defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e293b" stroke-width="0.5"/>
+    </pattern>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/>
+    </marker>
+    <marker id="arrowRose" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#fb7185"/>
+    </marker>
+    <marker id="arrowCyan" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#22d3ee"/>
+    </marker>
+    <style>
+      .bg { fill: #020617; }
+      .t-title { fill: #e2e8f0; font: 700 21px 'JetBrains Mono', 'DejaVu Sans Mono', monospace; }
+      .t-sub { fill: #94a3b8; font: 400 11px 'JetBrains Mono', 'DejaVu Sans Mono', monospace; }
+      .t-name { fill: #f1f5f9; font: 600 13px 'JetBrains Mono', 'DejaVu Sans Mono', monospace; }
+      .t-file { fill: #94a3b8; font: 400 9px 'JetBrains Mono', 'DejaVu Sans Mono', monospace; }
+      .t-note { fill: #cbd5e1; font: 400 9.5px 'JetBrains Mono', 'DejaVu Sans Mono', monospace; }
+      .t-note-h { fill: #e2e8f0; font: 700 9.5px 'JetBrains Mono', 'DejaVu Sans Mono', monospace; }
+      .t-bullet { fill: #94a3b8; font: 400 9px 'JetBrains Mono', 'DejaVu Sans Mono', monospace; }
+      .t-legend { fill: #64748b; font: 400 9px 'JetBrains Mono', 'DejaVu Sans Mono', monospace; }
+      .box-opaque { fill: #0f172a; }
+      .in-ui { fill: rgba(8, 51, 68, 0.45); stroke: #22d3ee; stroke-width: 1.5; }
+      .in-core { fill: rgba(6, 78, 59, 0.45); stroke: #34d399; stroke-width: 1.5; }
+      .in-ctx { fill: rgba(76, 29, 149, 0.42); stroke: #a78bfa; stroke-width: 1.5; }
+      .in-sec { fill: rgba(136, 19, 55, 0.42); stroke: #fb7185; stroke-width: 1.5; }
+      .in-llm { fill: rgba(30, 41, 59, 0.55); stroke: #94a3b8; stroke-width: 1.5; }
+      .in-browser { fill: rgba(120, 53, 15, 0.35); stroke: #fbbf24; stroke-width: 1.5; }
+      .in-human { fill: rgba(136, 19, 55, 0.28); stroke: #fb7185; stroke-width: 1.5; stroke-dasharray: 4,4; }
+      .note { fill: rgba(15, 23, 42, 0.92); stroke: #334155; stroke-width: 1; stroke-dasharray: 4,4; }
+      .leader { stroke: #475569; stroke-width: 1; stroke-dasharray: 3,3; fill: none; }
+      .flow { stroke: #64748b; stroke-width: 1.4; fill: none; }
+      .flow-rose { stroke: #fb7185; stroke-width: 1.4; fill: none; stroke-dasharray: 5,4; }
+      .flow-cyan { stroke: #22d3ee; stroke-width: 1.4; fill: none; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="1280" height="880"/>
+  <rect width="1280" height="880" fill="url(#grid)"/>
+
+  <text class="t-title" x="40" y="48">webpilot — как работает проект</text>
+  <text class="t-sub" x="40" y="70">Один цикл observe → decide → act → verify. Пять слоёв, которые не знают лишнего друг о друге.</text>
+
+  <!-- ===== поток: человек → UI → цикл ===== -->
+  <rect class="box-opaque" x="40" y="120" width="180" height="140" rx="6"/>
+  <rect class="in-human" x="40" y="120" width="180" height="140" rx="6"/>
+  <text class="t-name" x="58" y="146">человек</text>
+  <text class="t-bullet" x="58" y="170">• текст задачи</text>
+  <text class="t-bullet" x="58" y="188">• ответы на ask_user</text>
+  <text class="t-bullet" x="58" y="206">• подтверждение</text>
+  <text class="t-bullet" x="58" y="224">  деструктивных действий</text>
+  <text class="t-bullet" x="58" y="242">• ввод пароля в браузере</text>
+
+  <rect class="box-opaque" x="270" y="120" width="360" height="70" rx="6"/>
+  <rect class="in-ui" x="270" y="120" width="360" height="70" rx="6"/>
+  <text class="t-name" x="288" y="147">CLI / TerminalUI</text>
+  <text class="t-file" x="288" y="164">cli.py</text>
+  <text class="t-note" x="288" y="180">живой трейс: инструмент → аргументы → риск → токены</text>
+
+  <rect class="box-opaque" x="270" y="220" width="360" height="70" rx="6"/>
+  <rect class="in-core" x="270" y="220" width="360" height="70" rx="6"/>
+  <text class="t-name" x="288" y="247">Agent.run(task)</text>
+  <text class="t-file" x="288" y="264">agent/loop.py</text>
+  <text class="t-note" x="288" y="280">шаг, лимиты шагов/токенов, честный частичный финал</text>
+
+  <!-- человек ↔ UI ↔ цикл -->
+  <line class="flow-rose" x1="220" y1="160" x2="270" y2="155" marker-start="url(#arrowRose)"/>
+  <line class="flow-cyan" x1="270" y1="175" x2="220" y2="180" marker-start="url(#arrowCyan)"/>
+  <line class="flow" x1="450" y1="190" x2="450" y2="220" marker-end="url(#arrow)"/>
+  <text class="t-bullet" x="458" y="209">RunEvent → трейс</text>
+
+  <!-- ===== три слоя рядом ===== -->
+  <rect class="box-opaque" x="270" y="320" width="112" height="92" rx="6"/>
+  <rect class="in-ctx" x="270" y="320" width="112" height="92" rx="6"/>
+  <text class="t-name" x="284" y="344" font-size="11.5px">Context</text>
+  <text class="t-name" x="284" y="359" font-size="11.5px">Manager</text>
+  <text class="t-file" x="284" y="376">memory.py</text>
+  <text class="t-bullet" x="284" y="392">бюджет</text>
+  <text class="t-bullet" x="284" y="406">дельта-снимки</text>
+
+  <rect class="box-opaque" x="394" y="320" width="112" height="92" rx="6"/>
+  <rect class="in-ctx" x="394" y="320" width="112" height="92" rx="6"/>
+  <text class="t-name" x="408" y="344" font-size="11.5px">sub-agents</text>
+  <text class="t-file" x="408" y="361">subagents.py</text>
+  <text class="t-bullet" x="408" y="379">extractor</text>
+  <text class="t-bullet" x="408" y="393">recovery</text>
+  <text class="t-bullet" x="408" y="407">summarizer</text>
+
+  <rect class="box-opaque" x="518" y="320" width="112" height="92" rx="6"/>
+  <rect class="in-sec" x="518" y="320" width="112" height="92" rx="6"/>
+  <text class="t-name" x="532" y="344" font-size="11.5px">Security</text>
+  <text class="t-name" x="532" y="359" font-size="11.5px">Policy</text>
+  <text class="t-file" x="532" y="376" font-size="8px">security/policy.py</text>
+  <text class="t-bullet" x="532" y="392">по смыслу,</text>
+  <text class="t-bullet" x="532" y="406">не по сайту</text>
+
+  <line class="flow" x1="326" y1="290" x2="326" y2="320" marker-end="url(#arrow)"/>
+  <line class="flow" x1="450" y1="290" x2="450" y2="320" marker-end="url(#arrow)"/>
+  <line class="flow" x1="574" y1="290" x2="574" y2="320" marker-end="url(#arrow)"/>
+
+  <!-- LLM справа -->
+  <rect class="box-opaque" x="700" y="320" width="250" height="92" rx="6"/>
+  <rect class="in-llm" x="700" y="320" width="250" height="92" rx="6"/>
+  <text class="t-name" x="718" y="344">LLMClient</text>
+  <text class="t-file" x="718" y="361">llm/*</text>
+  <text class="t-bullet" x="718" y="379">openai · anthropic · deepseek</text>
+  <text class="t-bullet" x="718" y="393">local (Ollama, vLLM, llama.cpp)</text>
+  <text class="t-bullet" x="718" y="407">fake (офлайн-тесты)</text>
+  <line class="flow" x1="630" y1="255" x2="825" y2="320" marker-end="url(#arrow)"/>
+  <line class="flow" x1="825" y1="320" x2="630" y2="258" marker-end="url(#arrow)"/>
+
+  <!-- ===== executor + browser ===== -->
+  <rect class="box-opaque" x="270" y="450" width="360" height="70" rx="6"/>
+  <rect class="in-core" x="270" y="450" width="360" height="70" rx="6"/>
+  <text class="t-name" x="288" y="477">ActionExecutor</text>
+  <text class="t-file" x="288" y="494">browser/actions.py</text>
+  <text class="t-note" x="288" y="510">id → элемент, скролл, перекрытие, ввод, проверка эффекта</text>
+  <line class="flow" x1="450" y1="412" x2="450" y2="450" marker-end="url(#arrow)"/>
+
+  <rect class="box-opaque" x="270" y="556" width="360" height="70" rx="6"/>
+  <rect class="in-browser" x="270" y="556" width="360" height="70" rx="6"/>
+  <text class="t-name" x="288" y="583">BrowserSession</text>
+  <text class="t-file" x="288" y="600">browser/session.py + dom_snapshot.js</text>
+  <text class="t-note" x="288" y="616">видимый Chrome, постоянный профиль, снимок страницы</text>
+  <line class="flow" x1="450" y1="520" x2="450" y2="556" marker-end="url(#arrow)"/>
+  <line class="flow" x1="450" y1="556" x2="450" y2="522" marker-end="url(#arrow)"/>
+
+  <!-- ===== выноски ===== -->
+  <rect class="note" x="700" y="450" width="250" height="86" rx="6"/>
+  <text class="t-note-h" x="714" y="472">Плана нет</text>
+  <text class="t-note" x="714" y="490">Ни карты сайта, ни списка шагов</text>
+  <text class="t-note" x="714" y="505">под конкретный магазин. Проверяется</text>
+  <text class="t-note" x="714" y="520">grep-тестом по src/, а не обещанием.</text>
+  <path class="leader" d="M 700 480 L 636 260"/>
+
+  <rect class="note" x="700" y="556" width="250" height="86" rx="6"/>
+  <text class="t-note-h" x="714" y="578">Модель не видит селекторов</text>
+  <text class="t-note" x="714" y="596">Ссылка на элемент — числовой id</text>
+  <text class="t-note" x="714" y="611">из снимка: N → [data-webpilot-id="N"].</text>
+  <text class="t-note" x="714" y="626">Одна функция, никаких CSS в промпте.</text>
+  <path class="leader" d="M 700 592 L 634 600"/>
+
+  <rect class="note" x="990" y="120" width="250" height="104" rx="6"/>
+  <text class="t-note-h" x="1004" y="142">Сырой HTML — не в контекст</text>
+  <text class="t-note" x="1004" y="160">Основной цикл читает только</text>
+  <text class="t-note" x="1004" y="175">пронумерованные элементы. Полный</text>
+  <text class="t-note" x="1004" y="190">текст доступен субагенту-экстрактору</text>
+  <text class="t-note" x="1004" y="205">через ask_page и возвращается кратко.</text>
+  <path class="leader" d="M 990 190 L 570 350"/>
+
+  <rect class="note" x="990" y="244" width="250" height="104" rx="6"/>
+  <text class="t-note-h" x="1004" y="266">Деструктивное — через человека</text>
+  <text class="t-note" x="1004" y="284">Оплата, удаление, отправка входят</text>
+  <text class="t-note" x="1004" y="299">в окно подтверждения; отказ — это</text>
+  <text class="t-note" x="1004" y="314">ветка логики, а не молчаливый пропуск.</text>
+  <text class="t-note" x="1004" y="329">Всё пишется в append-only аудит.</text>
+  <path class="leader" d="M 990 310 L 632 390"/>
+
+  <rect class="note" x="990" y="368" width="250" height="104" rx="6"/>
+  <text class="t-note-h" x="1004" y="390">«Кликнул» ≠ «сработало»</text>
+  <text class="t-note" x="1004" y="408">До и после действия сравниваются URL,</text>
+  <text class="t-note" x="1004" y="423">хеш страницы, значение поля, число</text>
+  <text class="t-note" x="1004" y="438">диалогов. Нет эффекта — модель узнаёт</text>
+  <text class="t-note" x="1004" y="453">причину сразу, а не на следующем шаге.</text>
+  <path class="leader" d="M 990 436 L 632 488"/>
+
+  <rect class="note" x="40" y="320" width="200" height="126" rx="6"/>
+  <text class="t-note-h" x="54" y="342">Бюджет токенов жёсткий</text>
+  <text class="t-note" x="54" y="360">Контекст не превышает</text>
+  <text class="t-note" x="54" y="375">context_token_budget даже</text>
+  <text class="t-note" x="54" y="390">на 200 шагах: страница</text>
+  <text class="t-note" x="54" y="405">ужимается, история свора-</text>
+  <text class="t-note" x="54" y="420">чивается, скрэтчпад живёт.</text>
+  <path class="leader" d="M 240 366 L 268 382"/>
+
+  <rect class="note" x="40" y="486" width="200" height="140" rx="6"/>
+  <text class="t-note-h" x="54" y="508">Persistent session</text>
+  <text class="t-note" x="54" y="526">Профиль браузера живёт между</text>
+  <text class="t-note" x="54" y="541">запусками: человек логинится</text>
+  <text class="t-note" x="54" y="556">один раз, агент продолжает.</text>
+  <text class="t-note" x="54" y="576">Поля паролей executor не</text>
+  <text class="t-note" x="54" y="591">заполняет никогда — только</text>
+  <text class="t-note" x="54" y="606">человек, в видимом окне.</text>
+  <path class="leader" d="M 240 596 L 268 610"/>
+
+  <!-- легенда -->
+  <rect class="box-opaque" x="40" y="690" width="1200" height="150" rx="6" stroke="#1e293b" stroke-width="1"/>
+  <text class="t-legend" x="60" y="716">ЛЕГЕНДА</text>
+  <rect x="60" y="730" width="16" height="12" rx="3" class="in-ui"/>
+  <text class="t-legend" x="84" y="740">интерфейс человека</text>
+  <rect x="230" y="730" width="16" height="12" rx="3" class="in-core"/>
+  <text class="t-legend" x="254" y="740">цикл агента и исполнение</text>
+  <rect x="450" y="730" width="16" height="12" rx="3" class="in-ctx"/>
+  <text class="t-legend" x="474" y="740">контекст и субагенты</text>
+  <rect x="650" y="730" width="16" height="12" rx="3" class="in-sec"/>
+  <text class="t-legend" x="674" y="740">безопасность</text>
+  <rect x="800" y="730" width="16" height="12" rx="3" class="in-browser"/>
+  <text class="t-legend" x="824" y="740">браузер и страница</text>
+  <rect x="990" y="730" width="16" height="12" rx="3" class="in-llm"/>
+  <text class="t-legend" x="1014" y="740">провайдер модели</text>
+  <line class="flow" x1="60" y1="766" x2="120" y2="766" marker-end="url(#arrow)"/>
+  <text class="t-legend" x="132" y="770">вызов / событие</text>
+  <line class="flow-rose" x1="260" y1="766" x2="320" y2="766" marker-end="url(#arrowRose)"/>
+  <text class="t-legend" x="332" y="770">ввод и подтверждения человека</text>
+  <rect x="530" y="760" width="40" height="12" rx="3" class="note"/>
+  <text class="t-legend" x="582" y="770">пояснение к решению</text>
+
+  <text class="t-legend" x="60" y="800">Задача → снимок страницы → решение модели → инструмент → проверка эффекта → следующий шаг.</text>
+  <text class="t-legend" x="60" y="818">Пунктирные розовые линии — единственные места, где в цикл входит человек; всё остальное агент делает сам.</text>
+</svg>
