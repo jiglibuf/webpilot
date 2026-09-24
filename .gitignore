@@ -1,0 +1,29 @@
+# credentials / local state
+.env
+.venv/
+venv/
+*.env.local
+
+# agent runtime artifacts
+/webpilot-out/
+transcripts/
+screenshots/
+audit.jsonl
+*.jsonl
+!tests/fixtures/**/*.jsonl
+
+# python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# demo recordings
+demo/out/
+*.mp4
+*.mkv
+*.log

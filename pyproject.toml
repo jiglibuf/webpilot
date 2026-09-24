@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "webpilot"
+version = "0.1.0"
+description = "Autonomous LLM agent that drives a visible Chrome browser through multi-step web tasks"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "webpilot contributors" }]
+keywords = ["llm", "agent", "browser-automation", "playwright", "ai-agents"]
+dependencies = [
+    "playwright>=1.45",
+    "rich>=13.7",
+    "openai>=1.40",
+    "anthropic>=0.34",
+]
+
+[project.optional-dependencies]
+local = ["tiktoken>=0.7"]
+dev = ["pytest>=8", "pytest-timeout>=2"]
+
+[project.scripts]
+webpilot = "webpilot.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/jiglibuf/webpilot"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q -m 'not live'"
+markers = [
+    "live: hits a real LLM provider and/or the public internet (deselected by default)",
+    "browser: needs a Chromium install",
+]
+filterwarnings = ["ignore::DeprecationWarning"]
