@@ -125,13 +125,19 @@ def window_class(display: str, wid: str) -> str:
     return sh(f"DISPLAY={display} xprop -id {wid} WM_CLASS")
 
 
-def find_browser_window(display: str) -> str | None:
-    """The browser is the mapped window that is not the recording terminal.
+def find_browser_window(display: str, profile_dir: str | None = None) -> str | None:
+    """Find the browser's window.
 
-    Without a window manager the WM_CLASS hint is not always published, so:
-    prefer an explicit chrome/chromium class, otherwise take any other mapped
-    window that is at least 300 px wide.
+    The reliable anchor is the process: the browser was started with
+    ``--user-data-dir=<profile>``, so its pid owns the window.  Guessing by class
+    or by "the window that is not the terminal" picks the wrong window as soon as
+    the terminal is re-mapped or a dialog appears.
     """
+    if profile_dir:
+        for pid in sh(f"pgrep -f 'user-data-dir={profile_dir}'").split():
+            for wid in sh(f"DISPLAY={display} xdotool search --onlyvisible --pid {pid}").split():
+                if "xterm" not in window_class(display, wid).lower():
+                    return wid
     fallback = None
     for wid, _name in windows(display).items():
         cls = window_class(display, wid).lower()
@@ -153,8 +159,11 @@ def find_browser_window(display: str) -> str | None:
 
 
 def focus(display: str, wid: str) -> None:
-    sh(f"DISPLAY={display} xdotool windowfocus --sync {wid}")
-    sh(f"DISPLAY={display} xdotool windowactivate --sync {wid} 2>/dev/null")
+    """Activate the window without --sync: with a window manager --sync can block
+    for a minute, and a slow "human" makes for a very slow demo."""
+    sh(f"DISPLAY={display} xdotool windowfocus {wid} 2>/dev/null")
+    sh(f"DISPLAY={display} xdotool windowactivate {wid} 2>/dev/null")
+    time.sleep(0.35)
 
 
 def pick_encoder() -> tuple[str, list[str]]:
@@ -332,7 +341,7 @@ def one_take(ns) -> dict:
             if terminal.poll() is not None:
                 break
             if browser_window is None:
-                browser_window = find_browser_window(ns.display)
+                browser_window = find_browser_window(ns.display, ns.profile_dir)
                 if browser_window:
                     log(f"browser window: {browser_window} | {window_class(ns.display, browser_window)[:60]}", logfile)
             path = newest_transcript(transcript_dir, started - 5)

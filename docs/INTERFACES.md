@@ -148,6 +148,17 @@ class ActionExecutor:
   "form rejected the value", "page needs waiting").
 * Never type into a password field: return `ok=False` with
   `recovery_hint="password fields are filled by the human"` and let the loop call `ask_user`.
+* **Input-delivery fallback (added after the environment investigation, see
+  `RESEARCH.md` §8).** The native path always runs first and unchanged. If its own verification
+  shows no observable change and the element is still attached/enabled/uncovered/visible (and is
+  not a credential field), the action is retried once by dispatching a full synthetic event
+  sequence inside the page (`pointerdown/mousedown/pointerup/mouseup/click` after a hit test that
+  walks shadow roots; for typing the native value setter + `input`/`change` + per-character keys;
+  for Enter `form.requestSubmit()` as the last resort). Both `click`/`type_text`/`press_key`
+  report the mechanism in `ToolResult.data["input_method"]` (`"native"` | `"dom_fallback"`),
+  with `input_fallback` details and `fallback_attempted` on failures. The fallback never
+  bypasses the safety checks and never fabricates success: if nothing is observed even then, the
+  original honest failure is returned.
 * Return a fresh `PageModel` in `ToolResult.page` (full mode) for every action that can
   change the page, and `page_changed=True/False` accordingly.
 
