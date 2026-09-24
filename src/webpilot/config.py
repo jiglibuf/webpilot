@@ -184,16 +184,53 @@ def config_from_env(
     env: Mapping[str, str] | None = None,
     overrides: Mapping[str, Any] | None = None,
 ) -> Config:
-    """Build a Config from environment variables plus explicit overrides."""
+    """Build a Config from environment variables plus explicit overrides.
+
+    Precedence: explicit ``overrides`` (CLI flags) win over environment
+    variables, which win over the built-in defaults.
+    """
+    import shlex
+
     env = dict(os.environ if env is None else env)
     overrides = dict(overrides or {})
+
+    env_overrides: dict[str, Any] = {}
+    if env.get("WEBPILOT_HEADLESS", "").lower() in ("1", "true", "yes", "on"):
+        env_overrides["headless"] = True
+    if env.get("WEBPILOT_BROWSER_ARGS"):
+        env_overrides["browser_args"] = shlex.split(env["WEBPILOT_BROWSER_ARGS"])
+    if env.get("WEBPILOT_BROWSER_CHANNEL"):
+        env_overrides["browser_channel"] = env["WEBPILOT_BROWSER_CHANNEL"]
+    if env.get("WEBPILOT_PROFILE_DIR"):
+        env_overrides["user_data_dir"] = Path(env["WEBPILOT_PROFILE_DIR"]).expanduser()
+    if env.get("WEBPILOT_WINDOW_SIZE"):
+        try:
+            width, height = env["WEBPILOT_WINDOW_SIZE"].lower().split("x")
+            env_overrides["window_size"] = (int(width), int(height))
+        except ValueError as exc:  # keep the error actionable
+            raise ConfigError("WEBPILOT_WINDOW_SIZE must look like 1440x900") from exc
+    if env.get("WEBPILOT_CONFIRM_MODE"):
+        env_overrides["confirm_mode"] = env["WEBPILOT_CONFIRM_MODE"]
+    if env.get("WEBPILOT_MAX_STEPS"):
+        env_overrides["max_steps"] = int(env["WEBPILOT_MAX_STEPS"])
+    if env.get("WEBPILOT_PAGE_BUDGET"):
+        env_overrides["page_token_budget"] = int(env["WEBPILOT_PAGE_BUDGET"])
+    if env.get("WEBPILOT_CONTEXT_BUDGET"):
+        env_overrides["context_token_budget"] = int(env["WEBPILOT_CONTEXT_BUDGET"])
+    if env.get("WEBPILOT_TRANSCRIPT_DIR"):
+        env_overrides["transcript_dir"] = Path(env["WEBPILOT_TRANSCRIPT_DIR"]).expanduser()
+    if env.get("WEBPILOT_AUTO_APPROVE_DOMAINS"):
+        env_overrides["auto_approve_domains"] = [
+            d.strip() for d in env["WEBPILOT_AUTO_APPROVE_DOMAINS"].split(",") if d.strip()
+        ]
+
     provider = overrides.pop("provider", env.get("WEBPILOT_PROVIDER", "openai"))
     info = PROVIDERS.get(provider, {})
     api_key = overrides.pop("api_key", None) or env.get(str(info.get("key_env", "")))
     base_url = overrides.pop("base_url", None) or env.get("WEBPILOT_BASE_URL") or info.get("base_url")
     model = overrides.pop("model", None) or env.get("WEBPILOT_MODEL") or info.get("model", "")
-    cfg = Config(provider=provider, model=model, api_key=api_key, base_url=base_url, **overrides)
-    return cfg
+    merged = {**env_overrides, **overrides}
+    return Config(provider=provider, model=model, api_key=api_key, base_url=base_url, **merged)
 
 
 def config_from_args(args: Sequence[str] | None = None, env: Mapping[str, str] | None = None) -> Config:
