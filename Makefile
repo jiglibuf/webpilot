@@ -1,7 +1,7 @@
 PY ?= .venv/bin/python
 TASK ?= Find the cheapest product in the shop and report its name and price.
 
-.PHONY: help install install-browsers test test-all lint clean demo demo-local measure serve-shop
+.PHONY: help install install-browsers test test-all lint clean demo demo-local measure serve-shop probe-input
 
 help:
 	@echo "make install          - create .venv and install webpilot (editable) + dev deps"
@@ -12,6 +12,7 @@ help:
 	@echo "make demo-local       - run the agent against the bundled offline test shop"
 	@echo "make serve-shop       - start the bundled test shop on :8765"
 	@echo "make measure          - re-run the page-perception measurements into docs/measurements.json"
+	@echo "make probe-input      - check whether synthetic input reaches the page in this environment"
 
 install:
 	uv venv --python 3.11 .venv
@@ -29,6 +30,9 @@ test-all:
 
 measure:
 	$(PY) scripts/measure_perception.py
+
+probe-input:
+	$(PY) scripts/probe_input_delivery.py
 
 serve-shop:
 	$(PY) -m tests.fixtures.site.server --port 8765
