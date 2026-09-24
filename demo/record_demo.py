@@ -181,6 +181,14 @@ def pick_encoder() -> tuple[str, list[str]]:
     return "mpeg4", ["-c:v", "mpeg4", "-qscale:v", "3", "-pix_fmt", "yuv420p"]
 
 
+def have_gst(element: str) -> bool:
+    try:
+        out = subprocess.run(["gst-inspect-1.0", element], capture_output=True, text=True).stdout
+    except OSError:
+        return False
+    return bool(out.strip())
+
+
 def have_gst_h264() -> bool:
     try:
         out = subprocess.run(["gst-inspect-1.0", "x264enc"], capture_output=True, text=True).stdout
@@ -190,9 +198,21 @@ def have_gst_h264() -> bool:
 
 
 def start_recorder(display: str, region_size: str, out: Path, logfile):
-    """Start screen recording.  x264 via GStreamer is preferred (mp4/H.264 plays
-    everywhere), ffmpeg is the fallback.  Stop it by sending SIGINT."""
-    if have_gst_h264():
+    """Start screen recording.  x264/GStreamer -> mp4/H.264 by default; a ``.webm``
+    output uses VP9, which every Linux desktop and browser can decode without the
+    patent-encumbered H.264 decoders.  Stop it by sending SIGINT."""
+    if out.suffix.lower() == ".webm" and have_gst("vp9enc") and have_gst("webmmux"):
+        log("[rec] encoder: gstreamer vp9enc (webm/vp9)", logfile)
+        return subprocess.Popen(
+            ["gst-launch-1.0", "-e", "-q",
+             "ximagesrc", f"display-name={display}", "use-damage=0", "!",
+             "video/x-raw,framerate=15/1", "!", "videoconvert", "!",
+             "video/x-raw,format=I420", "!",
+             "vp9enc", "deadline=1", "cpu-used=8", "target-bitrate=3500000", "keyframe-max-dist=30", "!",
+             "webmmux", "!", "filesink", f"location={out}"],
+            stdin=subprocess.DEVNULL,
+        )
+    if have_gst("x264enc"):
         log("[rec] encoder: gstreamer x264enc (mp4/h264)", logfile)
         return subprocess.Popen(
             ["gst-launch-1.0", "-e", "-q",
