@@ -9,10 +9,13 @@
 
 Задача демо (одна из «сложных многошаговых», как в задании):
 
-> Зайди на https://www.saucedemo.com/ и войди под пользователем `standard_user` (пароль
-> `secret_sauce`). Затем найди самый дорогой товар, положи его в корзину, перейди к
-> оформлению и оформи заказ на имя Test User, индекс 12345. Не забудь, что пароль вводит
-> человек. В конце подтверди, что заказ оформлен, и назови итоговую сумму.
+> Зайди на https://www.saucedemo.com/ и войди: логин `standard_user`, пароль `secret_sauce`
+> (пароль вводит человек). Оформи заказ на два товара — Backpack и Bike Light — на имя
+> Test User, индекс 12345. В конце подтверди, что заказ оформлен, и назови итоговую сумму.
+
+Записанный прогон: успех за 27 шагов, ~1:55 видео, 4 подтверждения деструктивных действий,
+итог $43.18 (Backpack $29.99 + Bike Light $9.99 + налог $3.20), на странице подтверждения —
+«Thank you for your order!».
 
 Что на этом сценарии видно из требований задания:
 
@@ -37,8 +40,9 @@
 ## Как записать заново
 
 ```bash
-# один раз: apt/dnf install xvfb xterm ffmpeg xdotool xorg-x11-utils
-python demo/record_demo.py --task "..." --out demo/out/demo.mp4
+# один раз: apt/dnf install xvfb xterm xdotool xorg-x11-utils openbox \
+#           gstreamer1-plugins-ugly   # или ffmpeg с libx264
+python demo/record_demo.py --task "..." --out demo/out/demo.mp4 --takes 2
 ```
 
 Скрипт:
