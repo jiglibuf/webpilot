@@ -19,7 +19,26 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from webpilot.config import Config  # noqa: E402
+from webpilot import config as config_module  # noqa: E402
 from webpilot.types import AgentUI, RunEvent  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def _no_local_dotenv(monkeypatch):
+    """Keep the suite independent of the developer's own ``.env`` file.
+
+    ``config_from_env()`` without an explicit mapping reads ``.env`` from the
+    working directory (that is what makes ``webpilot "task"`` work right after a
+    clone).  Tests must not inherit a real key from it, so the *default path* is
+    neutered while an explicit path still works — tests that check the parser
+    pass their own file.
+    """
+    real = config_module._read_dotenv
+
+    def guarded(path=None):
+        return {} if path is None else real(path)
+
+    monkeypatch.setattr(config_module, "_read_dotenv", guarded)
 
 
 @pytest.fixture(scope="session")

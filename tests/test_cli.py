@@ -317,6 +317,64 @@ def test_flags_are_parsed_end_to_end_through_config_from_args(tmp_path: Path):
     assert config.task == "find the price of the chair"
 
 
+# --- .env handling ---------------------------------------------------------
+# config_from_env() with env=None is the real-environment path: a local .env
+# fills in what the process does not export.  The autouse fixture in conftest
+# stubs that reader for every other test; these two patch it back on purpose.
+
+
+def test_dotenv_supplies_the_key_the_environment_does_not_export(monkeypatch):
+    from webpilot import config as config_module
+
+    monkeypatch.setattr(
+        config_module,
+        "_read_dotenv",
+        lambda path=None: {"WEBPILOT_PROVIDER": "deepseek", "DEEPSEEK_API_KEY": "from-file"},
+    )
+    monkeypatch.delenv("WEBPILOT_PROVIDER", raising=False)
+    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+
+    cfg = config_module.config_from_env()
+
+    assert cfg.provider == "deepseek"
+    assert cfg.api_key == "from-file"
+    assert cfg.needs_key is True  # the key came from the file, not from defaults
+
+
+def test_an_exported_variable_beats_the_dotenv_file(monkeypatch):
+    from webpilot import config as config_module
+
+    monkeypatch.setattr(
+        config_module, "_read_dotenv", lambda path=None: {"WEBPILOT_PROVIDER": "deepseek"}
+    )
+    monkeypatch.setenv("WEBPILOT_PROVIDER", "anthropic")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "from-env")
+
+    cfg = config_module.config_from_env()
+
+    assert cfg.provider == "anthropic"
+    assert cfg.api_key == "from-env"
+
+
+def test_dotenv_reader_handles_comments_quotes_and_blank_lines(tmp_path: Path):
+    from webpilot import config as config_module
+
+    path = tmp_path / ".env"
+    path.write_text(
+        "# a comment\n\nWEBPILOT_PROVIDER=deepseek\n"
+        'DEEPSEEK_API_KEY="quoted value"\nDEEPSEEK_MODEL=\'single\'\n\nbroken-line\n',
+        encoding="utf-8",
+    )
+
+    values = config_module._read_dotenv(path)
+
+    assert values == {
+        "WEBPILOT_PROVIDER": "deepseek",
+        "DEEPSEEK_API_KEY": "quoted value",
+        "DEEPSEEK_MODEL": "single",
+    }
+
+
 def test_bare_run_subcommand_is_accepted():
     assert cli._strip_subcommand(["run", "open", "the", "cart"]) == ["open", "the", "cart"]
     assert cli._strip_subcommand(["start", "open"]) == ["open"]

@@ -166,18 +166,24 @@ class Config:
         return replace(self, **changes)
 
 
-def _load_dotenv(path: Path = Path(".env")) -> None:
-    """Minimal .env loader (no dependency on python-dotenv at runtime)."""
+def _read_dotenv(path: Path = Path(".env")) -> dict[str, str]:
+    """Read a minimal ``KEY=value`` ``.env`` file (comments and quotes handled).
+
+    Returns a plain mapping and never touches ``os.environ``: the caller decides
+    what to do with it, which keeps the test-suite independent of any local file.
+    """
+    values: dict[str, str] = {}
     if not path.exists():
-        return
+        return values
     for raw in path.read_text(encoding="utf-8").splitlines():
         line = raw.strip()
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, _, value = line.partition("=")
         key, value = key.strip(), value.strip().strip('"').strip("'")
-        if key and key not in os.environ:
-            os.environ[key] = value
+        if key:
+            values[key] = value
+    return values
 
 
 def config_from_env(
@@ -187,11 +193,16 @@ def config_from_env(
     """Build a Config from environment variables plus explicit overrides.
 
     Precedence: explicit ``overrides`` (CLI flags) win over environment
-    variables, which win over the built-in defaults.
+    variables, which win over the built-in defaults.  When ``env`` is not given,
+    a local ``.env`` fills in whatever the process environment does not already
+    export (so an exported variable always beats the file).  Callers that pass an
+    explicit mapping — the test-suite, embedded uses — bypass ``.env`` entirely.
     """
     import shlex
 
-    env = dict(os.environ if env is None else env)
+    env = dict(
+        {**_read_dotenv(), **os.environ} if env is None else env
+    )
     overrides = dict(overrides or {})
 
     env_overrides: dict[str, Any] = {}
