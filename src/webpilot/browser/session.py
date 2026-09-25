@@ -94,8 +94,12 @@ class BrowserSession:
         """
         cfg = self.config
         args = ["--no-sandbox", "--disable-dev-shm-usage"]
-        if not cfg.headless:
-            # headful: give the human a real, maximised window to log in with
+        if not cfg.headless and not _window_size_pinned(cfg.browser_args):
+            # headful: give the human a real, maximised window to log in with -
+            # unless the caller pinned an exact geometry.  --start-maximized makes
+            # Chromium re-assert a maximised state and fight the window manager, so
+            # a demo that needs the window to stay inside half of the screen would
+            # watch it snap back to its default size in the middle of the run.
             args.append("--start-maximized")
         args.append("--disable-blink-features=AutomationControlled")
         args.extend(cfg.browser_args or [])
@@ -427,6 +431,17 @@ def _page_url(page: Any) -> str:
         return str(page.url or "")
     except Exception:
         return ""
+
+
+def _window_size_pinned(browser_args: list[str] | None) -> bool:
+    """True when the caller pinned the window geometry in the browser arguments.
+
+    A recording harness splits the screen in half and wants the browser to stay in
+    its half, so it passes ``--window-size``/``--window-position``; adding
+    ``--start-maximized`` on top of that is a contradiction Chromium resolves by
+    re-maximising (or snapping back to a remembered size) behind the caller's back.
+    """
+    return any(str(arg).startswith("--window-size") for arg in (browser_args or []))
 
 
 def _is_blank(page: Any) -> bool:

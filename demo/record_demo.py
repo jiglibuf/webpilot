@@ -60,6 +60,110 @@ HUMAN_SCRIPT_FIRST = [
     {"delay": 1.5, "action": "wait", "keys": ""},
 ]
 
+def window_geometry(display: str, wid: str) -> tuple[int, int, int, int] | None:
+    """(x, y, width, height) of a window, or ``None`` when it is gone."""
+    values: dict[str, str] = {}
+    for line in sh(f"DISPLAY={display} xdotool getwindowgeometry --shell {wid}").splitlines():
+        key, _, value = line.partition("=")
+        values[key.strip()] = value.strip()
+    try:
+        return int(values["X"]), int(values["Y"]), int(values["WIDTH"]), int(values["HEIGHT"])
+    except (KeyError, ValueError):
+        return None
+
+
+def arrange_windows(display: str, term: str | None, browser: str | None, logfile=None,
+                    attempts: int = 3) -> None:
+    """Force a clean 50/50 split: terminal on the left half, browser on the right.
+
+    Chrome does not reliably honour ``--window-position``/``--window-size`` (a
+    window restored from the persistent profile wins, and ``--start-maximized``
+    makes it re-assert a maximised state), so the window manager is asked to place
+    both windows instead of trusting the launch flags - and the result is checked,
+    because Chromium can snap back to its own size a second later and a half-placed
+    window quietly ruins the whole take.
+    """
+    targets = []
+    if term:
+        targets.append((term, 0, 0, LEFT_W, H, "terminal"))
+    if browser:
+        targets.append((browser, LEFT_W, 0, RIGHT_W, H, "browser"))
+    for attempt in range(1, max(1, attempts) + 1):
+        for wid, x, y, w, h, _label in targets:
+            sh(f"DISPLAY={display} xdotool windowmove {wid} {x} {y}")
+            sh(f"DISPLAY={display} xdotool windowsize {wid} {w} {h}")
+        time.sleep(0.8)
+        placed, ok = [], True
+        for wid, _x, _y, w, h, label in targets:
+            geometry = window_geometry(display, wid)
+            if geometry is None:
+                placed.append(f"{label}=gone")
+                ok = False
+                continue
+            gx, gy, gw, gh = geometry
+            placed.append(f"{label}={gx},{gy} {gw}x{gh}")
+            if abs(gw - w) > 8 or abs(gh - h) > 80:
+                # the window manager clamps to the work area (title bar + panel), so
+                # a height a few dozen pixels short of the screen is expected
+                ok = False
+        log(f"[layout] {'; '.join(placed)}" + ("" if ok else f" (retry {attempt})"), logfile)
+        if ok:
+            return
+    log("[layout] warning: both windows do not fill their half exactly", logfile)
+
+
+def detect_screen(display: str) -> str:
+    """Pixel geometry of a display, e.g. ``1680x900`` (falls back to the constant)."""
+    geometry = sh(f"xdpyinfo -display {display} | awk '/dimensions/ {{print $2}}'").strip()
+    return geometry or SCREEN.split("x", 2)[0] + "x" + SCREEN.split("x", 2)[1]
+
+
+def configure_layout(screen: str) -> None:
+    """Derive the two half-screen cells from the display we are about to record.
+
+    The demo is always "terminal on the left half, browser on the right half", so the
+    only input that matters is the display size - derived here instead of hardcoded,
+    which is what lets the same harness drive Xvfb and a real monitor.
+    """
+    global SCREEN, LEFT_W, RIGHT_W, H, BROWSER_ARGS
+    width, height = (int(value) for value in screen.split("x")[:2])
+    SCREEN = f"{width}x{height}x24"
+    LEFT_W, RIGHT_W, H = width // 2, width - width // 2, height
+    BROWSER_ARGS = (
+        "--ozone-platform=x11 --window-position=%d,0 --window-size=%d,%d "
+        "--no-first-run --no-default-browser-check --disable-infobars "
+        "--disable-features=Translate,TranslateUI,TranslateRanker,AcceptCHFrame "
+        "--excludeSwitches=enable-automation"
+    ) % (LEFT_W, RIGHT_W, H)
+    log(f"[layout] screen {width}x{height} -> terminal {LEFT_W}x{H}, browser {RIGHT_W}x{H}")
+
+
+#: DejaVu Sans Mono at -fs 10 measures about 7.7 x 17.3 px per cell; the window is
+#: snapped to the exact pixel size by arrange_windows() afterwards, so this only has
+#: to be close enough to start with.
+CELL_W, CELL_H = 7.7, 17.3
+
+#: How the "human" types: 'auto' picks ydotool on a Wayland session, xdotool on X.
+INPUT_TOOL = "auto"
+
+
+def xterm_geometry(width: int, height: int) -> str:
+    return f"{max(20, int(width / CELL_W))}x{max(5, int(height / CELL_H))}+0+0"
+
+
+def capture_screen(display: str, out: Path) -> bool:
+    """Save one frame of the display (used to check the layout before recording)."""
+    try:
+        subprocess.run(
+            ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-f", "x11grab",
+             "-video_size", f"{LEFT_W * 2}x{H}", "-i", display, "-frames:v", "1", str(out)],
+            check=True, capture_output=True, timeout=60,
+        )
+        return out.exists() and out.stat().st_size > 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
 BROWSER_ARGS = (
     "--ozone-platform=x11 --window-position=%d,0 --window-size=%d,%d "
     "--no-first-run --no-default-browser-check --disable-infobars "
@@ -101,12 +205,16 @@ def ensure_xvfb(display: str) -> None:
     raise SystemExit(f"could not start Xvfb on {display}")
 
 
-def ensure_wm(display: str) -> None:
+def ensure_wm(display: str, allow_start: bool = True) -> None:
     """A window manager keeps focus/activation sane - without one, Chromium can
-    ignore window activation and the 'human' keystrokes land nowhere."""
+    ignore window activation and the 'human' keystrokes land nowhere.
+
+    ``allow_start=False`` on a real desktop: there the session's own compositor
+    (KWin) already manages the screen, and starting openbox there would fight it.
+    """
     if subprocess.run("pgrep -x openbox", shell=True, capture_output=True).returncode == 0:
         return
-    if shutil.which("openbox") is None:
+    if not allow_start or shutil.which("openbox") is None:
         return
     subprocess.Popen(["openbox", "--sm-disable"], env={**os.environ, "DISPLAY": display},
                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -125,6 +233,19 @@ def window_class(display: str, wid: str) -> str:
     return sh(f"DISPLAY={display} xprop -id {wid} WM_CLASS")
 
 
+def _is_browser_process(pid: str) -> bool:
+    """True when ``pid`` really is a Chromium process, not a shell or a wrapper.
+
+    ``pgrep -f 'user-data-dir=…'`` also matches the shell that started the demo
+    (its own command line contains the profile path), and an Electron window of
+    some other application can then be mistaken for the browser - which is
+    exactly what happened once: the harness resized an unrelated window and left
+    the real browser at its default size.
+    """
+    exe = sh(f"readlink -f /proc/{pid}/exe 2>/dev/null").strip()
+    return "chrome" in exe or "chromium" in exe
+
+
 def find_browser_window(display: str, profile_dir: str | None = None) -> str | None:
     """Find the browser's window.
 
@@ -132,37 +253,47 @@ def find_browser_window(display: str, profile_dir: str | None = None) -> str | N
     ``--user-data-dir=<profile>``, so its pid owns the window.  Guessing by class
     or by "the window that is not the terminal" picks the wrong window as soon as
     the terminal is re-mapped or a dialog appears.
+
+    Note that the browser's WM_CLASS is *not* "chromium" here: the Chromium build
+    we drive puts the profile directory into the class (``Hermes (~/.webpilot/…)``
+    on this machine), so the class is matched against the profile path instead of
+    a hardcoded name.
     """
+    profile_name = Path(profile_dir).expanduser().name if profile_dir else ""
     if profile_dir:
-        for pid in sh(f"pgrep -f 'user-data-dir={profile_dir}'").split():
+        # The browser gets the *expanded* path on its command line, while the demo
+        # receives "~/.webpilot/…" - matching the raw argument never finds it.
+        expanded = str(Path(profile_dir).expanduser())
+        for pid in sh(f"pgrep -f 'user-data-dir={expanded}'").split():
+            if not _is_browser_process(pid):
+                continue
             for wid in sh(f"DISPLAY={display} xdotool search --onlyvisible --pid {pid}").split():
                 if "xterm" not in window_class(display, wid).lower():
                     return wid
-    fallback = None
+    # Last resort: a window whose class mentions the profile we launched with.
     for wid, _name in windows(display).items():
         cls = window_class(display, wid).lower()
         if "xterm" in cls:
             continue
-        if "chrome" in cls or "chromium" in cls:
+        if "chrome" in cls or "chromium" in cls or (profile_name and profile_name.lower() in cls):
             return wid
-        geometry = sh(f"DISPLAY={display} xdotool getwindowgeometry {wid}")
-        width = 0
-        for token in geometry.replace("\n", " ").split():
-            if token.startswith("Geometry:"):
-                try:
-                    width = int(geometry.split("Geometry:")[1].split("x")[0].strip())
-                except (IndexError, ValueError):
-                    width = 0
-        if width >= 300 and fallback is None:
-            fallback = wid
-    return fallback
+    return None
 
 
 def focus(display: str, wid: str) -> None:
-    """Activate the window without --sync: with a window manager --sync can block
-    for a minute, and a slow "human" makes for a very slow demo."""
+    """Activate the window before typing.
+
+    xdotool (XTEST) delivers to the X focus, so a plain ``windowfocus`` is enough.
+    ydotool injects at the kernel level and the compositor routes the keys to *its*
+    active window, so activation has to have actually happened first - ``--sync``
+    waits for the window manager to confirm, with a hard timeout so that a slow WM
+    cannot stall the demo (the reason this used to avoid ``--sync``).
+    """
     sh(f"DISPLAY={display} xdotool windowfocus {wid} 2>/dev/null")
-    sh(f"DISPLAY={display} xdotool windowactivate {wid} 2>/dev/null")
+    if input_backend() == "ydotool":
+        sh(f"DISPLAY={display} timeout 5 xdotool windowactivate --sync {wid} 2>/dev/null")
+    else:
+        sh(f"DISPLAY={display} xdotool windowactivate {wid} 2>/dev/null")
     time.sleep(0.35)
 
 
@@ -236,23 +367,73 @@ def start_recorder(display: str, region_size: str, out: Path, logfile):
     )
 
 
+#: Linux input keycodes (evdev) for the keys the "human" script presses by name, plus
+#: the characters it types one by one when a name is not enough.
+KEYCODES = {
+    "tab": 15, "return": 28, "enter": 28, "escape": 1, "space": 57, "backspace": 14,
+    "shift": 42, "ctrl": 29, "control": 29, "alt": 56,
+    "a": 30, "b": 48, "c": 46, "d": 32, "e": 18, "f": 33, "g": 34, "h": 35,
+    "i": 23, "j": 36, "k": 37, "l": 38, "m": 50, "n": 49, "o": 24, "p": 25,
+    "q": 16, "r": 19, "s": 31, "t": 20, "u": 22, "v": 47, "w": 17, "x": 45,
+    "y": 21, "z": 44, "1": 2, "2": 3, "3": 4, "4": 5, "5": 6, "6": 7, "7": 8,
+    "8": 9, "9": 10, "0": 11, "-": 12, "=": 13, ".": 52, ",": 51, "/": 53,
+}
+
+
+def ydotool_chord(keys: str) -> str:
+    """``ctrl+r`` -> ``29:1 19:1 19:0 29:0`` (press modifiers first, release in reverse)."""
+    parts = [p.strip().lower() for p in keys.split("+") if p.strip()]
+    codes = [KEYCODES.get(p) for p in parts]
+    codes = [c for c in codes if c is not None]
+    if not codes:
+        return ""
+    presses = " ".join(f"{c}:1" for c in codes)
+    releases = " ".join(f"{c}:0" for c in reversed(codes))
+    return f"{presses} {releases}"
+
+
+def input_backend() -> str:
+    """How keystrokes reach the window.
+
+    XTEST (xdotool) only works while an X server owns the input focus; on a Wayland
+    session the compositor does, and injected X events never arrive - there the demo
+    types through ydotool, which goes in at the kernel/uinput level.
+    """
+    if INPUT_TOOL != "auto":
+        return INPUT_TOOL
+    if shutil.which("ydotool") and os.environ.get("WAYLAND_DISPLAY"):
+        return "ydotool"
+    return "xdotool"
+
+
 def send(display: str, wid: str, item: dict) -> None:
-    """Type into a window the way a person does: activate it, then send real X
-    events (XTEST).  ``xdotool --window`` (XSendEvent) is delivered by some
-    toolkits only, so it is the fallback rather than the default."""
+    """Type into a window the way a person does: activate it, then send real input
+    events.  ``xdotool --window`` (XSendEvent) is delivered by some toolkits only,
+    so it is the fallback rather than the default."""
     keys = item.get("keys", "")
     if item.get("action") == "wait":
         time.sleep(float(item.get("delay", 0.5)))
         return
     focus(display, wid)
-    if item.get("action") == "type":
+    backend = input_backend()
+    if backend == "ydotool":
+        socket = os.environ.get("YDOTOOL_SOCKET", "/tmp/.ydotool_socket")
+        if item.get("action") == "type":
+            cmd = f"YDOTOOL_SOCKET={socket} ydotool type --key-delay 25 {shlex.quote(keys)}"
+            fallback = f"DISPLAY={display} xdotool type --window {wid} --delay 45 {shlex.quote(keys)}"
+        else:
+            chord = ydotool_chord(keys)
+            cmd = f"YDOTOOL_SOCKET={socket} ydotool key {chord}"
+            fallback = f"DISPLAY={display} xdotool key --window {wid} {keys}"
+    elif item.get("action") == "type":
         cmd = f"DISPLAY={display} xdotool type --delay 45 {shlex.quote(keys)}"
         fallback = f"DISPLAY={display} xdotool type --window {wid} --delay 45 {shlex.quote(keys)}"
     else:
         cmd = f"DISPLAY={display} xdotool key {keys}"
         fallback = f"DISPLAY={display} xdotool key --window {wid} {keys}"
     sh(cmd)
-    if item.get("also_window"):
+    if item.get("also_window") or (backend == "ydotool" and item.get("action") == "type"
+                                  and item.get("verify_fallback")):
         sh(fallback)
 
 
@@ -287,9 +468,19 @@ def parse_args(argv=None):
     ap.add_argument("--task", required=True)
     ap.add_argument("--out", default=str(ROOT / "demo" / "out" / "demo.mp4"))
     ap.add_argument("--display", default=DISPLAY)
+    ap.add_argument("--screen", default="auto",
+                    help="screen geometry to split in half, e.g. 1920x1080; 'auto' reads it "
+                         "from the display (use with --no-xvfb for a real monitor)")
+    ap.add_argument("--no-xvfb", action="store_true",
+                    help="use the display as it is (real desktop) instead of starting Xvfb")
+    ap.add_argument("--input-tool", choices=["auto", "xdotool", "ydotool"], default="auto",
+                    help="how the scripted human sends keystrokes; 'auto' uses ydotool on "
+                         "Wayland (XTEST does not reach a compositor's active window)")
     ap.add_argument("--timeout", type=float, default=900.0)
     ap.add_argument("--human", default=None, help="JSON file with the scripted human actions")
     ap.add_argument("--no-record", action="store_true", help="dry run without recording")
+    ap.add_argument("--screenshot", default="",
+                    help="save one frame of the display to this path (layout check)")
     ap.add_argument("--keep-profile", action="store_true")
     ap.add_argument("--transcript-dir", default=str(Path.home() / ".webpilot" / "transcripts"))
     ap.add_argument("--profile-dir", default=str(Path.home() / ".webpilot" / "demo-profile"))
@@ -310,8 +501,14 @@ def one_take(ns) -> dict:
     if not ns.keep_profile:
         subprocess.run(["rm", "-rf", ns.profile_dir], check=False)
 
-    ensure_xvfb(ns.display)
-    ensure_wm(ns.display)
+    screen = ns.screen if ns.screen != "auto" else detect_screen(ns.display)
+    configure_layout(screen)
+    global INPUT_TOOL
+    INPUT_TOOL = ns.input_tool
+    log(f"[input] keystrokes via {input_backend()}")
+    if not ns.no_xvfb:
+        ensure_xvfb(ns.display)
+    ensure_wm(ns.display, allow_start=not ns.no_xvfb)
     known = set(windows(ns.display))
 
     env = {**os.environ, "DISPLAY": ns.display, "XDG_SESSION_TYPE": "x11",
@@ -327,11 +524,11 @@ def one_take(ns) -> dict:
 
     rec = None
     if not ns.no_record:
-        rec = start_recorder(ns.display, "1680x900", out, logfile)
+        rec = start_recorder(ns.display, f"{LEFT_W * 2}x{H}", out, logfile)
         time.sleep(1.0)
 
     terminal = subprocess.Popen(
-        ["xterm", "-geometry", "130x52+0+0", "-fa", "DejaVu Sans Mono", "-fs", "10",
+        ["xterm", "-geometry", xterm_geometry(LEFT_W, H), "-fa", "DejaVu Sans Mono", "-fs", "10",
          "-tn", "xterm-256color", "-bg", "#101216", "-fg", "#e8e8e8", "-title", "webpilot",
          "-e", "bash", "-lc",
          f"cd {shlex.quote(str(ROOT))} && source .venv/bin/activate && "
@@ -346,10 +543,15 @@ def one_take(ns) -> dict:
         if "xterm" in window_class(ns.display, wid).lower():
             term_window = wid
     print("terminal window:", term_window)
+    arrange_windows(ns.display, term_window, None, logfile)
+    if ns.screenshot:
+        if capture_screen(ns.display, Path(ns.screenshot)):
+            print(f"layout check saved: {ns.screenshot}")
 
     started = time.time()
     state: dict = {}
     browser_window: str | None = None
+    last_arrange = started
     pending_human = list(human_script)
     human_done = False
     human_attempts = 0
@@ -364,6 +566,15 @@ def one_take(ns) -> dict:
                 browser_window = find_browser_window(ns.display, ns.profile_dir)
                 if browser_window:
                     log(f"browser window: {browser_window} | {window_class(ns.display, browser_window)[:60]}", logfile)
+                    arrange_windows(ns.display, term_window, browser_window, logfile)
+                    last_arrange = time.time()
+                    if ns.screenshot:
+                        capture_screen(ns.display, Path(ns.screenshot))
+            elif time.time() - last_arrange > 8:
+                # Chrome re-sizes itself when a page opens a dialog or lands on a
+                # heavy layout; nudging both windows keeps the 50/50 split honest.
+                arrange_windows(ns.display, term_window, browser_window)
+                last_arrange = time.time()
             path = newest_transcript(transcript_dir, started - 5)
             if path:
                 for event in read_new_events(path, state):

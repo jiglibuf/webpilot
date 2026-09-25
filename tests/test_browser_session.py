@@ -52,6 +52,21 @@ def test_launch_options_headful_uses_the_real_window(make_config):
     assert options["channel"] == "chrome"
 
 
+def test_launch_options_headful_keeps_a_pinned_window_geometry(make_config):
+    """A demo that pins --window-size must not get --start-maximized as well.
+
+    Chromium resolves that contradiction by re-maximising mid-run, which pulls the
+    window out of the half of the screen it was placed in.
+    """
+    config = make_config(headless=False, browser_args=["--window-size=1280,1440",
+                                                      "--window-position=1280,0"])
+    options = BrowserSession(config).launch_options()
+
+    assert "--start-maximized" not in options["args"]
+    assert "--window-size=1280,1440" in options["args"]
+    assert options["viewport"] is None
+
+
 def test_sniffers_javascript_is_a_single_idempotent_iife():
     source = snapshot_js()
 

@@ -150,18 +150,54 @@ WEBPILOT_CONFIRM_MODE=yolo webpilot "задача"     # то же через о
 
 ## 8. Записать такое же видео
 
+Запись делится на две части: демонстрацию (терминал и браузер занимают по половине экрана) и
+сам захват экрана. Кадр — одна половина монитора под трейс агента, вторая под браузер:
+
 ```bash
-python demo/record_demo.py --task "…та же задача…" --extra-args "--max-steps 60" \
-  --out demo/out/demo.mp4 --takes 2
+# 1. запустить рекордер (Recordly) на пустом дисплее рядом с рабочим столом
+DISPLAY=:99 ~/apps/Recordly-linux-x64.AppImage --no-sandbox --ozone-platform=x11 \
+  --remote-debugging-port=9333 &
+
+# 2. запись: терминал слева, браузер справа, оба на весь экран
+python demo/record_demo.py --display :0 --no-xvfb --screen 2560x1440 --no-record \
+  --profile-dir ~/.webpilot/demo-recordly --takes 1 --extra-args "--max-steps 60" \
+  --task "…та же задача…"
 ```
 
-Харнесс поднимает **отдельный X-дисплей** (рабочему столу не мешает), кладёт терминал и браузер
-рядом, сам отыгрывает роль человека — вводит пароль и подтверждает опасное действие — и пишет
-видео. `--takes N` делает несколько дублей и оставляет успешный. Для VP9/WebM укажите имя файла с
-`.webm` (H.264 в Fedora может быть недоступен — см. README, раздел про форматы видео).
+Что здесь важно:
+
+* `--screen 2560x1440` — на какое разрешение раскладывать половины; на реальном мониторе
+  `--no-xvfb` запрещает харнессу поднимать Xvfb и трогать рабочий стол, а раскладку он делает
+  через `xdotool` (Chromium не всегда уважает свои `--window-position/--window-size`);
+* `--no-record` — харнесс не пишет своё видео и не глушит окна после финала слишком рано,
+  захватом занимается рекордер;
+* ввод «человека» на Wayland идёт через `ydotool` (`--input-tool auto` выбирает его сам):
+  XTEST-события `xdotool` до активного окна композитора не доходят, а `ydotool` пишет на уровне
+  uinput. Нужен запущенный `sudo ydotoold --socket-path /tmp/.ydotool_socket --socket-perm 0666`;
+* обрезать запись стоит по фактическим границам демо: всё, что вокруг — рабочий стол с личными
+  окнами, в публикацию не идёт.
+
+Дальше — экспорт. Recordly отдаёт VP9/WebM; H.264-кодировщика в Fedora нет, зато есть
+`x264enc` в GStreamer, поэтому MP4 собирается им, а звуковая дорожка (тишина) добавляется ffmpeg:
 
 ```bash
-python demo/record_demo.py --help      # все ключи
+# обрезка + кроп панели (окна занимают 0…1396 из 1440) с перекодированием в VP9
+ffmpeg -ss 11 -i recording.webm -t 107 -vf "crop=2560:1396:0:0,fps=30" \
+  -c:v libvpx-vp9 -crf 18 -b:v 0 -row-mt 1 -cpu-used 6 -an /tmp/demo-vp9.webm
+
+# MP4: H.264 через GStreamer + дорожка тишины и faststart
+gst-launch-1.0 -e filesrc location=/tmp/demo-vp9.webm ! matroskademux ! vp9dec ! videoconvert \
+  ! x264enc speed-preset=veryfast bitrate=4500 key-int-max=60 ! h264parse \
+  ! mp4mux faststart=true ! filesink location=/tmp/demo.mp4
+ffmpeg -i /tmp/demo.mp4 -f lavfi -i anullsrc=channel_layout=mono:sample_rate=48000 \
+  -c:v copy -c:a aac -b:a 32k -shortest -movflags +faststart demo/out/webpilot-demo.mp4
+```
+
+Тот же обрезанный файл в VP9 (`-crf 34 -cpu-used 5`) — это `webpilot-demo.webm` для системных
+плееров Fedora, где H.264-декодера нет.
+
+```bash
+python demo/record_demo.py --help      # все ключи харнесса
 ```
 
 ## 9. Если что-то не так
