@@ -1054,6 +1054,12 @@ class SecurityPolicy:
                 "password fields are filled by the human (allow_password_typing=False); "
                 "ask the human to log in"
             )
+        elif self.config.confirm_mode == "yolo":
+            decision = "auto_approved_yolo"
+            reason = (
+                "confirm_mode=yolo: destructive actions run without asking "
+                "(no human in the loop; the audit trail still records every one)"
+            )
         elif self.config.confirm_mode == "allow":
             decision = "auto_approved"
             reason = "confirm_mode=allow: destructive actions are approved automatically"

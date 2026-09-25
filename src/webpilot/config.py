@@ -108,7 +108,7 @@ class Config:
     task_timeout_s: float = 0.0             # 0 = no wall-clock limit
 
     # ---- security ---------------------------------------------------------
-    confirm_mode: str = "ask"               # ask | allow | deny
+    confirm_mode: str = "ask"               # ask | allow | deny | yolo
     auto_approve_domains: list[str] = field(default_factory=list)
     allow_password_typing: bool = False     # the human logs in manually instead
     allow_destructive_tools: bool = True    # if False, destructive calls are refused outright
@@ -137,8 +137,8 @@ class Config:
             value = getattr(self, attr)
             if isinstance(value, str):
                 setattr(self, attr, Path(value).expanduser())
-        if self.confirm_mode not in ("ask", "allow", "deny"):
-            raise ConfigError("confirm_mode must be one of: ask, allow, deny")
+        if self.confirm_mode not in ("ask", "allow", "deny", "yolo"):
+            raise ConfigError("confirm_mode must be one of: ask, allow, deny, yolo")
 
     # ------------------------------------------------------------------ #
     @property
@@ -261,7 +261,7 @@ def config_from_args(args: Sequence[str] | None = None, env: Mapping[str, str] |
     parser.add_argument("--browser-channel", default=None, help="chrome | chromium | msedge")
     parser.add_argument("--profile-dir", default=None, help="persistent browser profile directory")
     parser.add_argument("--max-steps", type=int, default=None)
-    parser.add_argument("--confirm-mode", choices=["ask", "allow", "deny"], default=None,
+    parser.add_argument("--confirm-mode", choices=["ask", "allow", "deny", "yolo"], default=None,
                         help="how to treat destructive actions")
     parser.add_argument("--auto-approve-domain", action="append", default=None,
                         help="domain whose destructive actions need no confirmation (repeatable)")

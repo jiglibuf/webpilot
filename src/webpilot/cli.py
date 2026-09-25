@@ -533,8 +533,17 @@ class TerminalUI(AgentUI):
             ("transcript_dir", "transcripts"),
             ("profile", "profile"),
         ):
-            if data.get(key) not in (None, ""):
-                table.add_row(label, escape(str(data[key])))
+            if data.get(key) in (None, ""):
+                continue
+            value = str(data[key])
+            if key == "confirm_mode" and value == "yolo":
+                table.add_row(
+                    label,
+                    "[bold red]yolo[/bold red] — no confirmations, every destructive "
+                    "action is reviewed afterwards in the audit",
+                )
+            else:
+                table.add_row(label, escape(value))
         if data.get("headless") is not None:
             table.add_row(
                 "browser",

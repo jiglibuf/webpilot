@@ -41,7 +41,7 @@ from webpilot.types import (
 
 PASSWORD = "hunter2-CORRECT-horse-battery"      # 27 chars, no digit-letter token
 CARD = "4111111111111111"
-API_KEY = "sk-live-abcdef0123456789abcdef"
+API_KEY = "sk-fake-0123456789abcdefghij"   # synthetic, matches the secret pattern on purpose
 JWT = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.abcdEFGH1234"
 
 SITE = "https://shop.example.invalid"
@@ -626,6 +626,36 @@ def test_allow_mode_never_prompts_but_still_audits(make_policy):
     assert "auto" in reason
     record = policy.audit_records()[-1]
     assert record["decision"] == "auto_approved" and record["human_answer"] is None
+
+
+def test_yolo_mode_never_prompts_and_marks_the_audit_trail(make_policy):
+    policy = make_policy(confirm_mode="yolo")
+    call, ctx = destructive_call()
+    calls: list[str] = []
+
+    approved, reason = policy.authorize(
+        call, policy.classify(call, ctx), ctx, lambda p, d: calls.append(p) or True
+    )
+
+    assert approved is True and not calls, "yolo must not ask the human"
+    assert "yolo" in reason
+    record = policy.audit_records()[-1]
+    assert record["decision"] == "auto_approved_yolo" and record["human_answer"] is None
+
+
+def test_yolo_mode_still_refuses_password_fields(make_policy):
+    """The password rule is not a confirmation: yolo cannot switch it off."""
+    policy = make_policy(confirm_mode="yolo")
+    call, ctx = typing("Password", PASSWORD, field_type="password",
+                       url=f"{SITE}/login", title="Sign in", password=True)
+
+    approved, reason = policy.authorize(
+        call, policy.classify(call, ctx), ctx, lambda p, d: True
+    )
+
+    assert approved is False
+    assert "human" in reason
+    assert policy.audit_records()[-1]["decision"] == "refused"
 
 
 def test_deny_mode_refuses_every_destructive_action(make_policy):
